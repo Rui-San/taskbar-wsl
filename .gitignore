@@ -29,5 +29,8 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+
+# Examples from libraries I'm using so I can look into their code while learning
+example/*
