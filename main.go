@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"fyne.io/systray"
-	"github.com/Rui-San/taskbar-wsl/command"
 	"github.com/Rui-San/taskbar-wsl/icon"
 	"github.com/Rui-San/taskbar-wsl/wsl"
 )
@@ -33,7 +32,7 @@ func onReady() {
 	systray.SetTitle("Taskbar WSL")
 	systray.SetTooltip("Taskbar WSL")
 
-	addInstancesMenuItems()
+	updateInstanceMenuItems()
 
 	systray.AddSeparator()
 
@@ -45,26 +44,62 @@ func onReady() {
 	addQuitOption()
 
 	// Start checking for status changes
-	go checkInstances(mShutdownAll)
+	go checkInstances(mTerminateAll)
 }
 
-// Need to make this dynamic and add submenus
-func addInstancesMenuItems() {
+func updateInstanceMenuItems() {
 	WSLInstanceChecker.Update()
+
+	currentInstances := make(map[string]struct{}, len(WSLInstanceChecker.Instances))
 	for _, instance := range WSLInstanceChecker.Instances {
+		currentInstances[instance.Name] = struct{}{}
 		instName := instance.Name + " [" + string(instance.State) + "]"
-		mInstance := systray.AddMenuItem(instName, "WSL instance: "+instance.Name)
+
+		mInstance, ok := instanceMenuItems[instance.Name]
+		if !ok {
+			mInstance = systray.AddMenuItem(instName, instance.Name+" Instance")
+			instanceMenuItems[instance.Name] = mInstance
+
+			distroTerminateSubMenu(instance.Name, mInstance)
+		}
+		mInstance.SetTitle(instName)
 		distroIcon := icon.GetByDistroName(instance.Name)
 		mInstance.SetIcon(distroIcon)
-		if !instance.Running() {
+
+		if instance.Running() {
+			mInstance.Enable()
+		} else {
 			mInstance.Disable()
+		}
+	}
+
+	for name, item := range instanceMenuItems {
+		if _, ok := currentInstances[name]; !ok {
+			item.Remove()
+			delete(instanceMenuItems, name)
 		}
 	}
 }
 
+func distroTerminateSubMenu(instanceName string, mInstance *systray.MenuItem) {
+	mTerminate := mInstance.AddSubMenuItem("Terminate", "Terminate "+instanceName)
+	mTerminate.SetIcon(icon.WSLClose)
+	go func() {
+		for range mTerminate.ClickedCh {
+			fmt.Println("Terminating", instanceName)
+			err := wsl.Terminate(instanceName)
+			if err != nil {
+				fmt.Println("Error terminating", instanceName, ":", err)
+			} else {
+				fmt.Println(instanceName, "terminated successfully")
+			}
+		}
+	}()
+}
+
 func checkInstances(items ...*systray.MenuItem) {
 	for {
-		WSLInstanceChecker.Update()
+		updateInstanceMenuItems()
 		if WSLInstanceChecker.RunningCount() > 0 {
 			systray.SetIcon(icon.WSLRunning)
 			for _, item := range items {
