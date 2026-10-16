@@ -16,6 +16,22 @@ const (
 
 type instanceState string
 
+func TerminateAll() error {
+	_, err := command.Run("wsl", "--shutdown")
+	if err != nil {
+		return fmt.Errorf("Error terminating WSL instances: %v", err)
+	}
+	return nil
+}
+
+func Terminate(distroName string) error {
+	_, err := command.Run("wsl", "-t", distroName)
+	if err != nil {
+		return fmt.Errorf("Error terminating WSL instance: %v", err)
+	}
+	return nil
+}
+
 // WSL Instance
 
 type instance struct {

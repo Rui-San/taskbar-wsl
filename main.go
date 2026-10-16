@@ -10,7 +10,14 @@ import (
 	"github.com/Rui-San/taskbar-wsl/wsl"
 )
 
-var WSLInstanceChecker = wsl.NewInstanceChecker()
+const (
+	REFRESH_INTERVAL = 2 * time.Second
+)
+
+var (
+	WSLInstanceChecker = wsl.NewInstanceChecker()
+	instanceMenuItems  = make(map[string]*systray.MenuItem)
+)
 
 func main() {
 	systray.Run(onReady, onExit)
@@ -30,9 +37,9 @@ func onReady() {
 
 	systray.AddSeparator()
 
-	mShutdownAll := systray.AddMenuItem("Shutdown all instances", "Shuts down all running WSL instances")
-	mShutdownAll.SetIcon(icon.WSLClose)
-	shutdownAllOptions(mShutdownAll)
+	mTerminateAll := systray.AddMenuItem("Terminate all instances", "Shuts down all running WSL instances")
+	mTerminateAll.SetIcon(icon.WSLClose)
+	terminateAllOptions(mTerminateAll)
 
 	systray.AddSeparator()
 	addQuitOption()
@@ -69,27 +76,22 @@ func checkInstances(items ...*systray.MenuItem) {
 				item.Remove()
 			}
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(REFRESH_INTERVAL)
 	}
 }
 
-func shutdownAllOptions(mShutdownAll *systray.MenuItem) {
+func terminateAllOptions(mTerminateAll *systray.MenuItem) {
 	go func() {
-		for range mShutdownAll.ClickedCh {
-			fmt.Println("Starting shutdown of all WSL instances...")
-			err := shutdownAllWSLInstances()
+		for range mTerminateAll.ClickedCh {
+			fmt.Println("Starting termination of all WSL instances...")
+			err := wsl.TerminateAll()
 			if err != nil {
-				fmt.Println("Error shutting down WSL instances:", err)
+				fmt.Println("Error terminating WSL instances:", err)
 			} else {
-				fmt.Println("All WSL instances shut down successfully")
+				fmt.Println("All WSL instances terminated successfully")
 			}
 		}
 	}()
-}
-
-func shutdownAllWSLInstances() error {
-	_, err := command.Run("wsl", "--shutdown")
-	return err
 }
 
 func addQuitOption() {
